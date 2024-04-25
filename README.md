@@ -1,3 +1,78 @@
+[TOC]
+
+### How to build the env
+
+​	[Sync between host and server]
+
+​		pull this repo;
+
+​		download the **SFTP** plugin in VS Code;
+
+​		and create .vscode/sftp.json for the project (under /smallpt);
+
+            {  
+                "name": "18646",
+                "host": "ece017.ece.local.cmu.edu",  
+                "protocol": "sftp",  
+                "port": 22,  
+                "username": "[andrewid]",  
+                "remotePath": "private/18646/p1/smallpt",
+                "uploadOnSave": true,  
+                "downloadOnOpen": true,  
+                "ignore": [  
+                    ".vscode",  
+                    ".git",  
+                    ".DS_Store",  
+                    "admin"  
+                ]  
+            }
+
+
+
+​	[Access]
+​		ssh [andrewid]@ece017.ece.local.cmu.edu
+​		cd private/18646/p1/smallpt/
+
+
+
+### How to run
+
+    [Build cuda environment]
+        make cuda_env
+        source ~/.bashrc
+
+    [Compile]
+    ​    make all
+​    
+    [Run]
+        make run_serial SPP=[samples_per_pixel]
+    ​    make run_omp SPP=[samples_per_pixel]
+    ​    make run_cuda SPP=[samples_per_pixel]
+
+
+
+### How to replace the scenes
+
+​    refer to /smallpt/resource/scene.txt, choose what we want \
+​    and replace the corresponding code (Sphere spheres[] = {}) in smallpt.cpp
+
+
+
+### How to set OpenMP parameters
+
+[OMP Info Display]
+    export OMP_DISPLAY_ENV=true
+
+[Thread Num]
+    export OMP_NUM_THREADS=32
+
+[Thread Affinity]
+    export OMP_PROC_BIND=spread
+    export OMP_PLACES=threads
+
+
+### Original Readme (from Smallpt)
+
 TITLE
 
 smallpt: Global Illumination in 99 lines of C++
