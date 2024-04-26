@@ -13,11 +13,11 @@
 
 using namespace std;
 
-#define MAX_THREADS 2048
+#define MAX_THREADS 1024
 #define MXAA_W 2
 #define MXAA_H 2
 #define IMG_W 1024
-#define IMG_H 512
+#define IMG_H 768
 
 struct Vec
 {                 
@@ -131,11 +131,11 @@ Sphere spheres[] = {
 //   Sphere(490,  Vec(1e3,  -300,-3e3), Vec(),  Vec(1,1,1)*.352,    DIFF),  //mnt
 // };
 
-__host__ __device__ inline double clamp(double x) { return x < 0 ? 0 : x > 1 ? 1: x; }
+__host__ __device__ double clamp(double x) { return x < 0 ? 0 : x > 1 ? 1: x; }
 
-__host__ __device__ inline int toInt(double x) { return int(pow(clamp(x), 1 / 2.2) * 255 + .5); }
+__host__ __device__ int toInt(double x) { return int(pow(clamp(x), 1 / 2.2) * 255 + .5); }
 
-__device__ inline bool intersect(const Ray &r, double &t, int &id, Sphere* spheres)
+__device__ bool intersect(const Ray &r, double &t, int &id, Sphere* spheres)
 {
   double n = sizeof(spheres) / sizeof(Sphere), d, inf = t = 1e20;
   for (int i = int(n); i--;)
@@ -153,7 +153,11 @@ __device__ Vec radiance(const Ray &r, int depth, curandState *state, Sphere* sph
   int id = 0; // id of intersected object
 
   if (!intersect(r, t, id, spheres))
-    return Vec();                  // if miss, return black
+    return Vec(1.0f,0.0f,1.0f);                  // if miss, return black
+
+  /// Hit Test
+  return Vec(1.0f,1.0f,1.0f);
+  ///
 
   const Sphere &obj = spheres[id]; // the hit object
   Vec x = r.o + r.d * t;
@@ -241,10 +245,20 @@ __global__ void render (int samples, Vec *c, Sphere* spheres)
   Vec cy = (cx % cam.d).norm() * .5135;
   Vec r(0.f);
 
-  int y = blockIdx.x * blockDim.x + threadIdx.x; // horizontal
-  int x = blockIdx.y * blockDim.y + threadIdx.y; // vertical
+  // int y = blockIdx.x * blockDim.x + threadIdx.x; // horizontal
+  // int x = blockIdx.y * blockDim.y + threadIdx.y; // vertical
+  int id = blockIdx.x * blockDim.x + threadIdx.x; 
+  int y = blockIdx.x;
+  int x = threadIdx.x; // vertical
 
   unsigned short Xi = y * y * y;
+
+
+  ////test screen space
+  // Vec t(x / 1024.0f , y / 768.0f, 1.0f);
+  // atomicAddVec(&c[(IMG_H - y - 1) * IMG_W + x], t);
+  // return;
+  ////PASS
 
   curandState *state;
   cudaMalloc(&state, sizeof(curandState));
@@ -264,12 +278,12 @@ __global__ void render (int samples, Vec *c, Sphere* spheres)
         Vec d = cx * (((sx + .5 + dx) / 2 + x) / IMG_W - .5) +
                 cy * (((sy + .5 + dy) / 2 + y) / IMG_H - .5) + cam.d;
 
-        r = r + radiance(Ray(cam.o + d * 140, d.norm()), 0, state, spheres) * (1. / samples);
+        r = r + radiance(Ray(cam.o + d * 140, d.norm()), 0, state, spheres) * (1.0f / samples);
       }
     
     // c[i] = c[i] + Vec(clamp(r.x), clamp(r.y), clamp(r.z)) * .25;
     Vec to_add(0.25 * clamp(r.x), 0.25 * clamp(r.y), 0.25 * clamp(r.z));
-    atomicAddVec(&c[i], to_add);
+    atomicAddVec(&c[id], to_add);
   }
 
 }
@@ -293,18 +307,7 @@ int main(int argc, char *argv[])
 
   RDTSC(t0);
 
-
-  // /* // GPU Version
-  int max_w = w * MXAA_W;
-  int max_h = h * MXAA_H;
-  int all_samples = max_w * max_h * samps;
-
-  int threadH = (MAX_THREADS > max_w) ? max_w : MAX_THREADS;
-  int threadV = (MAX_THREADS > max_w) ? ceil(MAX_THREADS / max_w) : 1;
-  dim3 Threads(threadH, threadV, 1);
-  dim3 Blocks(all_samples / threadH / threadV, 1, 1);
-
-  render<<<Blocks, Threads>>>(samps, dev_c, dev_spheres);
+  render<<<768, 1024>>>(samps, dev_c, dev_spheres);
   cudaMemcpy(result_c, dev_c, w * h * sizeof(Vec), cudaMemcpyDeviceToHost);
 
   cudaFree(dev_c);
