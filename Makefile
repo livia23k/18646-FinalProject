@@ -13,7 +13,7 @@ ifdef DEBUG
 CPPFLAGS=-g
 endif
 
-SPP= 5000
+SPP=500
 
 default: all
 
